@@ -1,27 +1,25 @@
-# Go Web Server on AWS with Terraform
+# Patient Data Server on AWS with Terraform
 
-A simple, robust project demonstrating how to build a Go web server and deploy it to an AWS EC2 instance using Terraform for Infrastructure as Code (IaC).
+A simple, robust project demonstrating how to build a Go web server and deploy it to an AWS EC2 instance (Ubuntu 22.04) using Terraform for Infrastructure as Code (IaC).
 
 ## 🚀 Overview
 
-This project consists of two main parts:
-1.  **Go Server:** A lightweight HTTP server that listens on port 8080.
-2.  **Infrastructure:** Terraform configurations to provision an AWS EC2 instance and set up the necessary networking/security rules.
-
-## 🛠 Features
-
-*   **Go 1.x Server:** Simple "Hello World" endpoint for health checks and verification.
-*   **Terraform IaC:** Defines provider, instance types, and security groups.
-*   **Automated Security:** Configures security groups to allow traffic on port 8080 (App) and 22 (SSH/SCP).
-*   **Deployment Workflow:** Clear instructions for compiling and transferring the binary.
+This project consists of:
+1.  **Go Server:** A lightweight HTTP server that listens on port 8080 and serves a "Hello, World!" message.
+2.  **Infrastructure:** Modular Terraform configurations to provision an AWS EC2 instance (tagged as `PatientDataServer`) and set up security groups.
 
 ## 📁 Project Structure
 
 ```text
 .
 ├── main.go            # Go web server source code
-├── server             # Compiled Go binary (ignored by git usually)
-├── main.tf            # Terraform infrastructure configuration
+├── go.mod             # Go module definition
+├── server             # Compiled Go binary (ignored by git)
+├── main.tf            # Main EC2 instance and Security Group resources
+├── variables.tf       # Input variable definitions
+├── outputs.tf         # Terraform output definitions
+├── providers.tf       # Terraform provider configuration
+├── data.tf            # Data sources (e.g., AMI lookups)
 └── README.md          # Project documentation
 ```
 
@@ -31,45 +29,49 @@ This project consists of two main parts:
 *   [Go](https://golang.org/doc/install) installed.
 *   [Terraform](https://developer.hashicorp.com/terraform/downloads) installed.
 *   AWS CLI configured with appropriate credentials.
-*   An AWS Key Pair (.pem file) downloaded to your machine.
+*   An AWS Key Pair (.pem file) available in your AWS region.
 
-### 2. Build the Server
-Since the server will run on a Linux EC2 instance, you need to compile it for the target architecture (if you are on Windows or Mac):
+### 2. Configure Variables
+Review `variables.tf` to customize your deployment. Key variables include:
+- `region`: AWS region (default: `us-east-2`).
+- `instance_type`: EC2 instance size (default: `t3.micro`).
+- `key_name`: The name of your SSH key pair.
+- `cidr_blocks`: Allowed IP ranges for ingress (default: `["0.0.0.0/0"]`).
+
+### 3. Build the Server
+Compile the Go application for Linux:
 
 ```bash
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server main.go
 ```
 
-### 3. Provision Infrastructure
+### 4. Provision Infrastructure
 Initialize and apply the Terraform configuration:
 
 ```bash
 terraform init
 terraform apply
 ```
-*Note: Ensure your `main.tf` includes your `key_name` and an output for the `public_ip`.*
+*Note: You will be prompted to confirm the plan. Ensure your `key_name` matches an existing key in your AWS account.*
 
-### 4. Transfer the Binary
-Use `scp` to copy the compiled binary to your EC2 instance:
-
-```bash
-scp -i /path/to/your-key.pem server ec2-user@<INSTANCE_PUBLIC_IP>:~/
-```
-
-### 5. Run the Server
-SSH into your instance and start the server:
+### 5. Transfer & Run the Server
+Use `scp` to copy the binary and `ssh` to run it:
 
 ```bash
-ssh -i /path/to/your-key.pem ec2-user@<INSTANCE_PUBLIC_IP>
+# Transfer
+scp -i /path/to/your-key.pem server ubuntu@<instance_public_ip>:~/
+
+# SSH and Run
+ssh -i /path/to/your-key.pem ubuntu@<instance_public_ip>
 chmod +x ./server
 ./server
 ```
 
-The server will now be accessible at `http://<INSTANCE_PUBLIC_IP>:8080`.
+The server will be accessible at `http://<instance_public_ip>:8080`.
 
 ## 🔒 Security Notes
-*   **Port 22:** Currently open to `0.0.0.0/0` in `main.tf`. For production, restrict this to your specific IP address.
-*   **Port 8080:** Open to allow web traffic to the Go application.
+*   The security group `patient_data_instance_sg` allows inbound traffic on port 22 (SSH) and 8080 (App) from the CIDR blocks defined in `variables.tf`.
+*   For production, restrict `cidr_blocks` to your specific IP address.
 
 ## 📜 License
 This project is open-source and available under the MIT License.
